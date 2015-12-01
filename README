@@ -1,8 +1,12 @@
 The following is Michael Eller's Project (In Progress)
 
+COMMANDS:
+    <Left-Click + MOUSE>: drag Xwing
+    <SPACE>:              reset Xwing to center of screen
+    m:                    change spacecraft (not functional yet)
+    <ESC>:                Exit program
 
 INSTALL:
-
 
 Most of the structure is leftover from the full github repo
 The following tools are required to make/run the project
@@ -25,10 +29,11 @@ Run the following commands to acquire all necessary packages
     $sudo make install
 
 See site for further instructions (clanlib.org/assimp-linux.htm) if needed
-from a fresh install of Ubuntu 14.04.3 LTS
+Tested from a fresh install of Ubuntu 14.04.3 LTS
 
 RUN:
     $cd bin
     $./assimp_simpleog
 Click and drag mouse to move Xwing Fighter around window (cursor is hidden)
+
 
