@@ -1,1 +1,34 @@
-See Readme.md
+The following is Michael Eller's Project (In Progress)
+
+
+INSTALL:
+
+
+Most of the structure is leftover from the full github repo
+The following tools are required to make/run the project
+    -cmake
+    -build-essentials
+    -zlib
+    -libxi
+
+Run the following commands to acquire all necessary packages
+    $sudo apt-get update
+    $sudo apt-get install cmake
+    $sudo apt-get install build-essentials
+    $sudo apt-get install zlib1g-dev
+    $sudo apt-get install zlib-bin
+    $sudo apt-get install libxmu-dev libxi-dev
+    $cd assimp
+    $cmake CMakeLists.txt -DASSIMP_BUILD_SAMPLES=1
+    $cmake CMakeLists.txt -G 'Unix Makefiles'
+    $make
+    $sudo make install
+
+See site for further instructions (clanlib.org/assimp-linux.htm) if needed
+from a fresh install of Ubuntu 14.04.3 LTS
+
+RUN:
+    $cd bin
+    $./assimp_simpleog
+Click and drag mouse to move Xwing Fighter around window (cursor is hidden)
+
