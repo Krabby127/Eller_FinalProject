@@ -26,6 +26,7 @@ static int g_yClick = 0;
 #include <stdarg.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #ifdef USEGLEW
 #include <GL/glew.h>
@@ -48,7 +49,7 @@ static int g_yClick = 0;
 //GLdouble windowDepth = 0.5;
 
 char *Xwing = "../Xwing.3ds";
-//char *bikini = "bikini.3ds";
+char *tieFighter = "../ARC170.3DS";
 /* the global Assimp scene object */
 const struct aiScene* scene = NULL;
 /* Second scene for other ships */
@@ -57,7 +58,8 @@ GLuint scene_list = 0;
 //GLuint scene_list2 = 0;
 struct aiVector3D scene_min, scene_max, scene_center;
 //struct aiVector3D scene2_min, scene2_max, scene2_center;
-
+time_t oldTime;
+time_t deltaTime;
 /* current rotation angle */
 static float angle = 0.f;
 
@@ -65,8 +67,6 @@ static float angle = 0.f;
 #define aisgl_max(x,y) (y>x?y:x)
 
 GLdouble mouseWorldCoord[3] = {0.0, 0.0, 0.0};
-int th = -140;      // Azimuth of view angle
-int ph = 5;         // Elevation of view angle
 int fov = 55;       // Field of view (for perspective)
 double dim = 3.0;   // Size of world
 int inc = 10;       // Ball increment
@@ -143,19 +143,6 @@ static void ball(double x, double y, double z, double r){
     glPopMatrix();
 }
 
-#if DEBUG
-/*
- *  This function is called by GLUT when idle
- */
-void idle(){
-    // Elapsed time in seconds
-    double t = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
-    zh = fmod(90 * t, 360.0);
-    // Tell GLUT it is necessary to redisplay the scene
-    //    glutPostRedisplay();
-}
-#endif
-
 
 void MouseButton(int button, int state, int x, int y)
 {
@@ -205,33 +192,6 @@ void MouseMotion(int x, int y)
         //http://nehe.gamedev.net/article/using_gluunproject/16013/
     }
 }
-
-
-#if !(DEBUG)
-/*
- *  GLUT calls this routine when an arrow key is pressed
- */
-void special(int key, int x, int y){
-    // Right arrow key - increase angle by 5 degrees
-    if (key == GLUT_KEY_RIGHT)
-        th += 5;
-    // Left arrow key - decrease angle by 5 degrees
-    else if (key == GLUT_KEY_LEFT)
-        th -= 5;
-    // Up arrow key - increase elevation by 5 degrees
-    else if (key == GLUT_KEY_UP)
-        ph += 5;
-    // Down arrow key - decrease elevation by 5 degrees
-    else if (key == GLUT_KEY_DOWN)
-        ph -= 5;
-    // Keep angles to +/-360 degrees
-    th %= 360;
-    ph %= 360;
-    // Tell GLUT it is necessary to redisplay the scene
-    //    glutPostRedisplay();
-}
-#endif
-
 
 
 /* ---------------------------------------------------------------------------- */
@@ -467,7 +427,6 @@ void do_motion (void)
 /* ---------------------------------------------------------------------------- */
 void display(void)
 {
-    // const double len = 2.0;
     float tmp;
     glPushMatrix();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -478,40 +437,7 @@ void display(void)
     /* rotate it around the y axis */
     //glRotatef(angle,0.f,1.f,0.f);
     glRotatef(180,0.f,1.f,0.f);
-#if DEBUG
-    double Ex = -1 * dim * Sin(th) * Cos(ph);
-    double Ey = +1 * dim * Sin(ph);
-    double Ez = +1 * dim * Cos(th) * Cos(ph);
-
-    gluLookAt(Ex, Ey, Ez, 0, 0, 0, 0, Cos(ph), 0);
-    float Ambient[] = 
-    { 0.01 * ambient, 0.01 * ambient, 0.01 * ambient, 1.0 };
-    float Diffuse[] =
-    { 0.01 * diffuse, 0.01 *diffuse, 0.01 * diffuse, 1.0 };
-    float Specular[] =
-    { 0.01 * specular, 0.01 * specular, 0.01 * specular, 1.0 };
-    // Light direction
-    float Position[] = { 5 * Cos(zh), ylight, 5 * Sin(zh), 1 };
-    // Draw light position as ball (still no lighting here)
-    glColor3f(1, 1, 1);
-    ball(Position[0], Position[1], Position[2], 0.1);
-    // OpenGL should normalize vectors
-    glEnable(GL_NORMALIZE);
-    // Enable Lighting
-    glEnable(GL_LIGHTING);
-    // glColor sets ambient and diffuse color materials
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-    glEnable(GL_COLOR_MATERIAL);
-    // Enable light 0
-    glEnable(GL_LIGHT0);
-    // Set ambient, diffuse, specular components and position of light 0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, Ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, Diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, Specular);
-    glLightfv(GL_LIGHT0, GL_POSITION, Position);
-#endif
-
-
+    
     /* scale the whole asset to fit into our view frustum */
     tmp = scene_max.x-scene_min.x;
     tmp = aisgl_max(scene_max.y - scene_min.y,tmp);
@@ -536,7 +462,7 @@ void display(void)
         recursive_render(scene, scene->mRootNode);
         glEndList();
     }
-    //glTranslatef(mouseWorldCoord[0],mouseWorldCoord[1],0);
+    glTranslatef(mouseWorldCoord[0],mouseWorldCoord[1],0);
     // ball(0,0,0,100);
     glCallList(scene_list);
     glPopMatrix();
@@ -579,7 +505,6 @@ int loadasset (const char* path)
     return 1;
 }
 
-#if !(DEBUG)
 /*
  *  GLUT calls this routine when a key is pressed
  */
@@ -587,63 +512,46 @@ void key(unsigned char ch, int x, int y){
     // Exit on ESC
     if (ch == 27)
         exit(0);
-    //  Reset view angle
-    else if (ch == '0')
-        th = ph = 0;
-    //  Light elevation
-    else if (ch == '[')
-        ylight -= 0.1;
-    else if (ch == ']')
-        ylight += 0.1;
-    else if (ch == 'a' && ambient > 0)
-        ambient -= 5;
-    else if (ch == 'A' && ambient < 100)
-        ambient += 5;
-    //  Diffuse level
-    else if (ch == 'd' && diffuse > 0)
-        diffuse -= 5;
-    else if (ch == 'D' && diffuse < 100)
-        diffuse += 5;
-    //  Specular level
-    else if (ch == 's' && specular > 0)
-        specular -= 5;
-    else if (ch == 'S' && specular < 100)
-        specular -= 5;
-    else if (ch == ' '){
+      else if (ch == ' '){
         mouseWorldCoord[0] = 1.f;
         mouseWorldCoord[1] = 1.f;
         mouseWorldCoord[2] = 1.f;
     }
-    else if (ch == 'm')
-        mode = 1 - mode;
-    /*
-       else if (ch == '+' || ch == '=')
-       windowDepth += 0.01;
-       else if (ch == '-' || ch == '_')
-       windowDepth -= 0.01;
-       if(windowDepth > 1.00) windowDepth = 1.00;
-       if(windowDepth < 0.00) windowDepth = 0.00;
-       printf("windowDepth = %f\n",windowDepth);
-       */
 
-    //    if(mode == 0){
-    // loadasset("bikini.3ds");
-    //      printf("Mode changed to bikini\n");
-    // }
-    // else if(mode == 1){
-    //   // loadasset("5633_Star_Wars_XWing_Starfighter.3ds");
-    // printf("Mode changed to XWing\n");
-    // }
+    //only allow mode to be changed every 5 seconds
+    //temporary workaround until can use multiple "scenes"
+    else if (ch == 'm') {
+        deltaTime = difftime(time(0),oldTime);
+        if(deltaTime >5){
+            oldTime = time(0);
+            mode = 1 - mode;
+            //without newModel=1, will never change modes
+            // newModel = 1;
+            printf("Mode changed.\n");
+            printf("Normally, another spacecraft would be loaded here.\n");
+        }
+    }
+
+    if((mode == 0) && (newModel == 1)){
+        loadasset(tieFighter);
+        printf("Mode changed to tie fighter\n");
+        newModel = 0;
+
+    }
+    if((mode == 1) && (newModel == 1)){
+        loadasset(Xwing);
+        printf("Mode changed to XWing\n");
+        newModel = 0;
+    }
 
 
 }
-#endif
 
 /* ---------------------------------------------------------------------------- */
 int main(int argc, char **argv)
 {
     struct aiLogStream stream;
-
+    oldTime = time(0);
     glutInitWindowSize(900,600);
     glutInitWindowPosition(100,100);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
@@ -654,10 +562,6 @@ int main(int argc, char **argv)
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSetCursor(GLUT_CURSOR_NONE);
-#if DEBUG
-    glutSpecialFunc(special);
-    glutIdleFunc(idle);
-#endif
     glutKeyboardFunc(key);
 
 
@@ -677,13 +581,7 @@ int main(int argc, char **argv)
        models from the repository (/models-nonbsd may be missing in 
        some distributions so we need a fallback from /models!). */
 
-#if !(DEBUG)
-    // glPushMatrix();
-    // loadasset("aphroditegirl.obj");
-    //    loadasset2(bikini);
     loadasset(Xwing);
-    // glPopMatrix();
-#endif
     glClearColor(0.1f,0.1f,0.1f,1.f);
 
     glutMouseFunc(MouseButton);
