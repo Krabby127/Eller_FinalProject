@@ -558,7 +558,7 @@ int main(int argc, char **argv)
     glutInit(&argc, argv);
     //aiLoadScene(Model1);
     //make function from 
-    glutCreateWindow("Assimp - Very simple OpenGL sample");
+    glutCreateWindow("Michael Eller - Final Project (Preview)");
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSetCursor(GLUT_CURSOR_NONE);
