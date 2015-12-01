@@ -244,6 +244,10 @@ void reshape(int width, int height)
     gluPerspective(fieldOfView, aspectRatio,
             1.0, 1000.0);  /* Znear and Zfar */
     glViewport(0, 0, width, height);
+    mouseWorldCoord[0]=0.f;
+    mouseWorldCoord[1]=0.f;
+    mouseWorldCoord[2]=0.f;
+    glTranslatef(0.f,0.f,0.f);
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -463,7 +467,7 @@ void do_motion (void)
 /* ---------------------------------------------------------------------------- */
 void display(void)
 {
-   // const double len = 2.0;
+    // const double len = 2.0;
     float tmp;
     glPushMatrix();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -675,9 +679,9 @@ int main(int argc, char **argv)
 
 #if !(DEBUG)
     // glPushMatrix();
-   // loadasset("aphroditegirl.obj");
+    // loadasset("aphroditegirl.obj");
     //    loadasset2(bikini);
-     loadasset("Xwing.3ds");
+    loadasset(Xwing);
     // glPopMatrix();
 #endif
     glClearColor(0.1f,0.1f,0.1f,1.f);
