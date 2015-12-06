@@ -48,7 +48,7 @@ static int g_yClick = 0;
 
 //GLdouble windowDepth = 0.5;
 unsigned int meshCurrent = 0;
-char *Xwing = "../Xwing.obj";
+char *Xwing = "../untitled.obj";
 char *tieFighter = "../ARC170.3DS";
 /* the global Assimp scene object */
 const struct aiScene* scene = NULL;
@@ -152,8 +152,6 @@ void MouseButton(int button, int state, int x, int y)
     if (button == GLUT_LEFT_BUTTON)
     {
         g_bButton1Down = (state == GLUT_DOWN) ? TRUE : FALSE;
-        //printf("Mouse Pressed!\n");
-
     }
 }
 
@@ -175,7 +173,6 @@ void MouseMotion(int x, int y)
     winX = (float)x;
     winY = (float)viewport[3] - (float)y;
     glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
-    //printf("winZ = %f.\n",winZ);
     // Map window coordinates to world coordinates
     // Currently only works head when viewing perpendicular to model
     gluUnProject( winX, winY, (GLdouble)0.71, modelview, projection, viewport, &posX, &posY, &posZ);
@@ -187,8 +184,6 @@ void MouseMotion(int x, int y)
         mouseWorldCoord[0]=posX;
         mouseWorldCoord[1]=posY;
         mouseWorldCoord[2]=posZ;
-        // printf("Current mouse position: %d,%d\n",x,y);
-        // printf("Current mouse world coordinates: %f,%f,%f\n",posX, posY, posZ);
         //http://nehe.gamedev.net/article/using_gluunproject/16013/
     }
 }
@@ -358,9 +353,9 @@ void get_bounding_box_for_node (const struct aiNode* nd,
         for (; n < nd->mNumMeshes; ++n) {
 
             // for (; n < meshCurrent; ++n) {
-            const struct aiMesh* mesh = scene->mMeshes[meshCurrent];
+            //const struct aiMesh* mesh = scene->mMeshes[meshCurrent];
 
-            //const struct aiMesh* mesh = scene->mMeshes[nd->mMeshes[-1]];
+            const struct aiMesh* mesh = scene->mMeshes[nd->mMeshes[n]];
             apply_material(sc->mMaterials[mesh->mMaterialIndex]);
 
             if(mesh->mNormals == NULL) {
@@ -483,7 +478,7 @@ void get_bounding_box_for_node (const struct aiNode* nd,
                    together on GL's matrix stack. */
                 //meshCurrent=1-meshCurrent;
                 meshCurrent=1;
-                recursive_render(scene, scene->mRootNode);
+                //recursive_render(scene, scene->mRootNode);
                 glEndList();
             }
             //meshCurrent=1-meshCurrent;
@@ -501,7 +496,7 @@ void get_bounding_box_for_node (const struct aiNode* nd,
                     glCallList(scene_list);
                     break;
             }
-                       glPopMatrix();
+            glPopMatrix();
             //glLoadIdentity();
             // Draw axes - no lighting from here on
             glDisable(GL_LIGHTING);
@@ -556,34 +551,7 @@ void get_bounding_box_for_node (const struct aiNode* nd,
             else if(ch == 'm')
                 meshCurrent = 1 - meshCurrent;
             printf("meshCurrent = %d\n",meshCurrent);
-            //only allow mode to be changed every 5 seconds
-            //temporary workaround until can use multiple "scenes"
-            /*
-               else if (ch == 'm') {
-               deltaTime = difftime(time(0),oldTime);
-               if(deltaTime >5){
-               oldTime = time(0);
-               mode = 1 - mode;
-            //without newModel=1, will never change modes
-            // newModel = 1;
-            printf("Mode changed.\n");
-            printf("Normally, another spacecraft would be loaded here.\n");
-            }
-            }
-
-            if((mode == 0) && (newModel == 1)){
-            loadasset(tieFighter);
-            printf("Mode changed to tie fighter\n");
-            newModel = 0;
-
-            }
-            if((mode == 1) && (newModel == 1)){
-            loadasset(Xwing);
-            printf("Mode changed to XWing\n");
-            newModel = 0;
-            }
-            */
-
+     
         }
 
         /* ---------------------------------------------------------------------------- */
