@@ -18,7 +18,7 @@ The following tools are required to make/run the project
 Run the following commands to acquire all necessary packages
     $sudo apt-get update
     $sudo apt-get install cmake
-    $sudo apt-get install build-essentials
+    $sudo apt-get install build-essential
     $sudo apt-get install zlib1g-dev
     $sudo apt-get install zlib-bin
     $sudo apt-get install libxmu-dev libxi-dev
