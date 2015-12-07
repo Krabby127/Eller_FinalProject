@@ -15,6 +15,7 @@
 
 
 typedef int BOOL;
+typedef int bool;
 #define TRUE 1
 #define FALSE 0
 
@@ -46,23 +47,17 @@ static int g_yClick = 0;
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-//GLdouble windowDepth = 0.5;
-
+int sky[2];         // Sky textures
 char *Xwing = "../Xwing.3ds";
-char *tieFighter = "../ARC170.3DS";
 /* the global Assimp scene object */
 const struct aiScene* scene = NULL;
 /* Second scene for other ships */
-//const struct aiScene* scene2 = NULL;
 GLuint scene_list = 0;
-//GLuint scene_list2 = 0;
+GLuint scene_list2 = 0;
 struct aiVector3D scene_min, scene_max, scene_center;
-//struct aiVector3D scene2_min, scene2_max, scene2_center;
-time_t oldTime;
-time_t deltaTime;
 /* current rotation angle */
 static float angle = 0.f;
-
+unsigned int meshCurrent = 0;
 #define aisgl_min(x,y) (x<y?x:y)
 #define aisgl_max(x,y) (y>x?y:x)
 
@@ -210,6 +205,170 @@ void reshape(int width, int height)
     glTranslatef(0.f,0.f,0.f);
 }
 
+void Fatal(const char* format , ...)
+{
+    va_list args;
+    va_start(args,format);
+    vfprintf(stderr,format,args);
+    va_end(args);
+    exit(1);
+}
+
+
+void ErrCheck(const char* where)
+{
+    int err = glGetError();
+    if (err) fprintf(stderr,"ERROR: %s [%s]\n",gluErrorString(err),where);
+}
+
+
+/*
+ *  *  Reverse n bytes
+ *   */
+static void Reverse(void* x,const int n)
+{
+    int k;
+    char* ch = (char*)x;
+    for (k=0;k<n/2;k++)
+    {
+        char tmp = ch[k];
+        ch[k] = ch[n-1-k];
+        ch[n-1-k] = tmp;
+    }
+}
+
+/*
+ *  *  Load texture from BMP file
+ *   */
+unsigned int LoadTexBMP(const char* file)
+{
+    unsigned int   texture;    // Texture name
+    FILE*          f;          // File pointer
+    unsigned short magic;      // Image magic
+    unsigned int   dx,dy,size; // Image dimensions
+    unsigned short nbp,bpp;    // Planes and bits per pixel
+    unsigned char* image;      // Image data
+    unsigned int   k;          // Counter
+    int            max;        // Maximum texture dimensions
+
+    //  Open file
+    f = fopen(file,"rb");
+    if (!f) Fatal("Cannot open file %s\n",file);
+    //  Check image magic
+    if (fread(&magic,2,1,f)!=1) Fatal("Cannot read magic from %s\n",file);
+    if (magic!=0x4D42 && magic!=0x424D) Fatal("Image magic not BMP in %s\n",file);
+    //  Seek to and read header
+    if (fseek(f,16,SEEK_CUR) || fread(&dx ,4,1,f)!=1 || fread(&dy ,4,1,f)!=1 ||
+            fread(&nbp,2,1,f)!=1 || fread(&bpp,2,1,f)!=1 || fread(&k,4,1,f)!=1)
+        Fatal("Cannot read header from %s\n",file);
+    //  Reverse bytes on big endian hardware (detected by backwards magic)
+    if (magic==0x424D)
+    {
+        Reverse(&dx,4);
+        Reverse(&dy,4);
+        Reverse(&nbp,2);
+        Reverse(&bpp,2);
+        Reverse(&k,4);
+    }
+    //  Check image parameters
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE,&max);
+    if (dx<1 || dx>max) Fatal("%s image width %d out of range 1-%d\n",file,dx,max);
+    if (dy<1 || dy>max) Fatal("%s image height %d out of range 1-%d\n",file,dy,max);
+    if (nbp!=1)  Fatal("%s bit planes is not 1: %d\n",file,nbp);
+    if (bpp!=24) Fatal("%s bits per pixel is not 24: %d\n",file,bpp);
+    if (k!=0)    Fatal("%s compressed files not supported\n",file);
+#ifndef GL_VERSION_2_0
+    //  OpenGL 2.0 lifts the restriction that texture size must be a power of two
+    for (k=1;k<dx;k*=2);
+    if (k!=dx) Fatal("%s image width not a power of two: %d\n",file,dx);
+    for (k=1;k<dy;k*=2);
+    if (k!=dy) Fatal("%s image height not a power of two: %d\n",file,dy);
+#endif
+
+    //  Allocate image memory
+    size = 3*dx*dy;
+    image = (unsigned char*) malloc(size);
+    if (!image) Fatal("Cannot allocate %d bytes of memory for image %s\n",size,file);
+    //  Seek to and read image
+    if (fseek(f,20,SEEK_CUR) || fread(image,size,1,f)!=1) Fatal("Error reading data from image %s\n",file);
+    fclose(f);
+    //  Reverse colors (BGR -> RGB)
+    for (k=0;k<size;k+=3)
+    {
+        unsigned char temp = image[k];
+        image[k]   = image[k+2];
+        image[k+2] = temp;
+    }
+
+    //  Sanity check
+    ErrCheck("LoadTexBMP");
+    //  Generate 2D texture
+    glGenTextures(1,&texture);
+    glBindTexture(GL_TEXTURE_2D,texture);
+    //  Copy image
+    glTexImage2D(GL_TEXTURE_2D,0,3,dx,dy,0,GL_RGB,GL_UNSIGNED_BYTE,image);
+    if (glGetError()) Fatal("Error in glTexImage2D %s %dx%d\n",file,dx,dy);
+    //  Scale linearly when image size doesn't match
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+
+    //  Free image memory
+    free(image);
+    //  Return texture name
+    return texture;
+}
+
+/* 
+ * Draw sky box
+ */
+static void Sky(double D)
+{
+    glColor3f(1,1,1);
+    glEnable(GL_TEXTURE_2D);
+
+    //  Sides
+    glBindTexture(GL_TEXTURE_2D,sky[0]);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.00,0.34); glVertex3f(-D,-D,-D);
+    glTexCoord2f(0.25,0.34); glVertex3f(+D,-D,-D);
+    glTexCoord2f(0.25,0.66); glVertex3f(+D,+D,-D);
+    glTexCoord2f(0.00,0.66); glVertex3f(-D,+D,-D);
+
+    glTexCoord2f(0.25,0.34); glVertex3f(+D,-D,-D);
+    glTexCoord2f(0.50,0.34); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.50,0.66); glVertex3f(+D,+D,+D);
+    glTexCoord2f(0.25,0.66); glVertex3f(+D,+D,-D);
+
+    glTexCoord2f(0.50,0.34); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.75,0.34); glVertex3f(-D,-D,+D);
+    glTexCoord2f(0.75,0.66); glVertex3f(-D,+D,+D);
+    glTexCoord2f(0.50,0.66); glVertex3f(+D,+D,+D);
+
+    glTexCoord2f(0.75,0.34); glVertex3f(-D,-D,+D);
+    glTexCoord2f(1.00,0.34); glVertex3f(-D,-D,-D);
+    glTexCoord2f(1.00,0.66); glVertex3f(-D,+D,-D);
+    glTexCoord2f(0.75,0.66); glVertex3f(-D,+D,+D);
+
+    glEnd();
+/*
+    //  Top and bottom
+    glBindTexture(GL_TEXTURE_2D,sky[0]);
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.25,0.0); glVertex3f(+D,+D,-D);
+    glTexCoord2f(0.5,0); glVertex3f(+D,+D,+D);
+    glTexCoord2f(0.5,0.34); glVertex3f(-D,+D,+D);
+    glTexCoord2f(0.25,0.34); glVertex3f(-D,+D,-D);
+
+    glTexCoord2f(0.5,0.0); glVertex3f(-D,-D,+D);
+    glTexCoord2f(0.5,0.33); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.25,0.33); glVertex3f(+D,-D,-D);
+    glTexCoord2f(0.25,0.0); glVertex3f(-D,-D,-D);
+    glEnd();
+*/
+    glDisable(GL_TEXTURE_2D);
+}
+
+
 /* ---------------------------------------------------------------------------- */
 void get_bounding_box_for_node (const struct aiNode* nd, 
         struct aiVector3D* min, 
@@ -244,6 +403,9 @@ void get_bounding_box_for_node (const struct aiNode* nd,
     }
     *trafo = prev;
 }
+
+
+
 
 /* ---------------------------------------------------------------------------- */
 void get_bounding_box (struct aiVector3D* min, struct aiVector3D* max)
@@ -427,6 +589,11 @@ void do_motion (void)
 /* ---------------------------------------------------------------------------- */
 void display(void)
 {
+    float Ambient[]   = {0,0,0,1};
+    float Diffuse[]   = {1,1,1,1};
+    float Specular[]  = {1.0,1.0,1.0,1};
+    float white[]     = {1,1,1,1};
+    float Position[] = {1,1,0,1};
     float tmp;
     glPushMatrix();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -437,7 +604,7 @@ void display(void)
     /* rotate it around the y axis */
     //glRotatef(angle,0.f,1.f,0.f);
     glRotatef(180,0.f,1.f,0.f);
-    
+    glEnable(GL_LIGHTING);
     /* scale the whole asset to fit into our view frustum */
     tmp = scene_max.x-scene_min.x;
     tmp = aisgl_max(scene_max.y - scene_min.y,tmp);
@@ -464,10 +631,22 @@ void display(void)
     }
     glTranslatef(mouseWorldCoord[0],mouseWorldCoord[1],0);
     // ball(0,0,0,100);
+
     glCallList(scene_list);
     glPopMatrix();
     //glLoadIdentity();
     // Draw axes - no lighting from here on
+    ball(Position[0],Position[1],Position[2],10);
+    glPushMatrix();
+    glRotatef(-90.0,0.0,1.0,0.0);
+    Sky(len*3.5);
+    glPopMatrix();
+    glLightfv(GL_LIGHT0,GL_AMBIENT ,Ambient);
+    glLightfv(GL_LIGHT0,GL_DIFFUSE ,Diffuse);
+    glLightfv(GL_LIGHT0,GL_SPECULAR,Specular);
+    glLightfv(GL_LIGHT0,GL_POSITION,Position);
+    glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,32.0f);
+    glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
     glDisable(GL_LIGHTING);
     glColor3f(1, 1, 1);
     glBegin(GL_LINES);
@@ -512,7 +691,7 @@ void key(unsigned char ch, int x, int y){
     // Exit on ESC
     if (ch == 27)
         exit(0);
-      else if (ch == ' '){
+    else if (ch == ' '){
         mouseWorldCoord[0] = 1.f;
         mouseWorldCoord[1] = 1.f;
         mouseWorldCoord[2] = 1.f;
@@ -521,27 +700,7 @@ void key(unsigned char ch, int x, int y){
     //only allow mode to be changed every 5 seconds
     //temporary workaround until can use multiple "scenes"
     else if (ch == 'm') {
-        deltaTime = difftime(time(0),oldTime);
-        if(deltaTime >5){
-            oldTime = time(0);
-            mode = 1 - mode;
-            //without newModel=1, will never change modes
-            // newModel = 1;
-            printf("Mode changed.\n");
-            printf("Normally, another spacecraft would be loaded here.\n");
-        }
-    }
-
-    if((mode == 0) && (newModel == 1)){
-        loadasset(tieFighter);
-        printf("Mode changed to tie fighter\n");
-        newModel = 0;
-
-    }
-    if((mode == 1) && (newModel == 1)){
-        loadasset(Xwing);
-        printf("Mode changed to XWing\n");
-        newModel = 0;
+        meshCurrent = 1 - meshCurrent;
     }
 
 
@@ -551,7 +710,6 @@ void key(unsigned char ch, int x, int y){
 int main(int argc, char **argv)
 {
     struct aiLogStream stream;
-    oldTime = time(0);
     glutInitWindowSize(900,600);
     glutInitWindowPosition(100,100);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
@@ -561,9 +719,9 @@ int main(int argc, char **argv)
     glutCreateWindow("Michael Eller - Final Project (Preview)");
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
-    glutSetCursor(GLUT_CURSOR_NONE);
+    //glutSetCursor(GLUT_CURSOR_NONE);
     glutKeyboardFunc(key);
-
+    sky[0] = LoadTexBMP("../sky2.bmp");
 
     /* get a handle to the predefined STDOUT log stream and attach
        it to the logging system. It remains active for all further
@@ -590,12 +748,12 @@ int main(int argc, char **argv)
 
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    /* Uses default lighting parameters */
-
+    glEnable(GL_LIGHT1);
     glEnable(GL_DEPTH_TEST);
 
     glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
     glEnable(GL_NORMALIZE);
-
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     /* XXX docs say all polygons are emitted CCW, but tests show that some aren't. */
     if(getenv("MODEL_IS_BROKEN"))  
         glFrontFace(GL_CW);
