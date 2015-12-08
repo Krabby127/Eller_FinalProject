@@ -22,6 +22,7 @@ typedef int bool;
 static BOOL g_bButton1Down = FALSE;
 static int g_yClick = 0;
 
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -47,6 +48,7 @@ static int g_yClick = 0;
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+bool axes = 0;
 int sky[2];         // Sky textures
 char *Xwing = "../Xwing.3ds";
 /* the global Assimp scene object */
@@ -62,21 +64,8 @@ unsigned int meshCurrent = 0;
 #define aisgl_max(x,y) (y>x?y:x)
 
 GLdouble mouseWorldCoord[3] = {0.0, 0.0, 0.0};
-int fov = 55;       // Field of view (for perspective)
-double dim = 3.0;   // Size of world
 int inc = 10;       // Ball increment
-int zh = 90;        // Light azimuth
-float ylight = 1.5; // Elevation of light
 int emission = 0;   // Emission intensity (%)
-int ambient = 30;   // Ambient intensity (%)
-int diffuse = 100;  // Diffuse intensity (%)
-int specular = 0;   // Specular intensity (%)
-int shininess = 6; // Shininess (power of two)
-float shinyvec[1];  // Shininess (value)
-int mode = 1;
-
-// Boolean indicating whether a (new) model has been loaded
-int newModel = 0;
 
 #define LEN 8192 // Maximum length of text string
 void Print(const char* format , ...)
@@ -170,20 +159,15 @@ void MouseMotion(int x, int y)
     winX = (float)x;
     winY = (float)viewport[3] - (float)y;
     glReadPixels( x, (int)winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
-    //printf("winZ = %f.\n",winZ);
     // Map window coordinates to world coordinates
     // Currently only works head when viewing perpendicular to model
     gluUnProject( winX, winY, (GLdouble)0.71, modelview, projection, viewport, &posX, &posY, &posZ);
-    // if(abs(posX)>rangeError || abs(posY)>rangeError || abs(posZ)>rangeError)
-    //     printf("Error!\nOut of range!\n\n");
     if (g_bButton1Down){
         // have mouse movement change gloabal variable that will change
         // where is drawn in display
         mouseWorldCoord[0]=posX;
         mouseWorldCoord[1]=posY;
         mouseWorldCoord[2]=posZ;
-        // printf("Current mouse position: %d,%d\n",x,y);
-        // printf("Current mouse world coordinates: %f,%f,%f\n",posX, posY, posZ);
         //http://nehe.gamedev.net/article/using_gluunproject/16013/
     }
 }
@@ -223,8 +207,8 @@ void ErrCheck(const char* where)
 
 
 /*
- *  *  Reverse n bytes
- *   */
+ *  Reverse n bytes
+ */
 static void Reverse(void* x,const int n)
 {
     int k;
@@ -238,8 +222,8 @@ static void Reverse(void* x,const int n)
 }
 
 /*
- *  *  Load texture from BMP file
- *   */
+ *  Load texture from BMP file
+ */
 unsigned int LoadTexBMP(const char* file)
 {
     unsigned int   texture;    // Texture name
@@ -318,8 +302,9 @@ unsigned int LoadTexBMP(const char* file)
     return texture;
 }
 
+
 /* 
- * Draw sky box
+ *  Draw sky box
  */
 static void Sky(double D)
 {
@@ -329,42 +314,41 @@ static void Sky(double D)
     //  Sides
     glBindTexture(GL_TEXTURE_2D,sky[0]);
     glBegin(GL_QUADS);
-    glTexCoord2f(0.00,0.34); glVertex3f(-D,-D,-D);
-    glTexCoord2f(0.25,0.34); glVertex3f(+D,-D,-D);
-    glTexCoord2f(0.25,0.66); glVertex3f(+D,+D,-D);
-    glTexCoord2f(0.00,0.66); glVertex3f(-D,+D,-D);
+    glTexCoord2f(0.00,0); glVertex3f(-D,-D,-D);
+    glTexCoord2f(0.25,0); glVertex3f(+D,-D,-D);
+    glTexCoord2f(0.25,1); glVertex3f(+D,+D,-D);
+    glTexCoord2f(0.00,1); glVertex3f(-D,+D,-D);
 
-    glTexCoord2f(0.25,0.34); glVertex3f(+D,-D,-D);
-    glTexCoord2f(0.50,0.34); glVertex3f(+D,-D,+D);
-    glTexCoord2f(0.50,0.66); glVertex3f(+D,+D,+D);
-    glTexCoord2f(0.25,0.66); glVertex3f(+D,+D,-D);
+    glTexCoord2f(0.25,0); glVertex3f(+D,-D,-D);
+    glTexCoord2f(0.50,0); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.50,1); glVertex3f(+D,+D,+D);
+    glTexCoord2f(0.25,1); glVertex3f(+D,+D,-D);
 
-    glTexCoord2f(0.50,0.34); glVertex3f(+D,-D,+D);
-    glTexCoord2f(0.75,0.34); glVertex3f(-D,-D,+D);
-    glTexCoord2f(0.75,0.66); glVertex3f(-D,+D,+D);
-    glTexCoord2f(0.50,0.66); glVertex3f(+D,+D,+D);
+    glTexCoord2f(0.50,0); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.75,0); glVertex3f(-D,-D,+D);
+    glTexCoord2f(0.75,1); glVertex3f(-D,+D,+D);
+    glTexCoord2f(0.50,1); glVertex3f(+D,+D,+D);
 
-    glTexCoord2f(0.75,0.34); glVertex3f(-D,-D,+D);
-    glTexCoord2f(1.00,0.34); glVertex3f(-D,-D,-D);
-    glTexCoord2f(1.00,0.66); glVertex3f(-D,+D,-D);
-    glTexCoord2f(0.75,0.66); glVertex3f(-D,+D,+D);
-
+    glTexCoord2f(0.75,0); glVertex3f(-D,-D,+D);
+    glTexCoord2f(1.00,0); glVertex3f(-D,-D,-D);
+    glTexCoord2f(1.00,1); glVertex3f(-D,+D,-D);
+    glTexCoord2f(0.75,1); glVertex3f(-D,+D,+D);
     glEnd();
-/*
+
     //  Top and bottom
-    glBindTexture(GL_TEXTURE_2D,sky[0]);
+    glBindTexture(GL_TEXTURE_2D,sky[1]);
     glBegin(GL_QUADS);
-    glTexCoord2f(0.25,0.0); glVertex3f(+D,+D,-D);
+    glTexCoord2f(0.0,0); glVertex3f(+D,+D,-D);
     glTexCoord2f(0.5,0); glVertex3f(+D,+D,+D);
-    glTexCoord2f(0.5,0.34); glVertex3f(-D,+D,+D);
-    glTexCoord2f(0.25,0.34); glVertex3f(-D,+D,-D);
+    glTexCoord2f(0.5,1); glVertex3f(-D,+D,+D);
+    glTexCoord2f(0.0,1); glVertex3f(-D,+D,-D);
 
-    glTexCoord2f(0.5,0.0); glVertex3f(-D,-D,+D);
-    glTexCoord2f(0.5,0.33); glVertex3f(+D,-D,+D);
-    glTexCoord2f(0.25,0.33); glVertex3f(+D,-D,-D);
-    glTexCoord2f(0.25,0.0); glVertex3f(-D,-D,-D);
+    glTexCoord2f(1.0,1); glVertex3f(-D,-D,+D);
+    glTexCoord2f(0.5,1); glVertex3f(+D,-D,+D);
+    glTexCoord2f(0.5,0); glVertex3f(+D,-D,-D);
+    glTexCoord2f(1.0,0); glVertex3f(-D,-D,-D);
     glEnd();
-*/
+
     glDisable(GL_TEXTURE_2D);
 }
 
@@ -593,11 +577,10 @@ void display(void)
     float Diffuse[]   = {1,1,1,1};
     float Specular[]  = {1.0,1.0,1.0,1};
     float white[]     = {1,1,1,1};
-    float Position[] = {1,1,0,1};
     float tmp;
     glPushMatrix();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    printf("Angle = %f\n",angle);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(0.f,0.f,3.f,0.f,0.f,-5.f,0.f,1.f,0.f);
@@ -611,17 +594,15 @@ void display(void)
     tmp = aisgl_max(scene_max.z - scene_min.z,tmp);
     double len = tmp;
     tmp = 1.f / tmp;
+    float Position[] = {len*3.5,len/2,0,1};
     glScalef(tmp, tmp, tmp);
     /* center the model */
     glTranslatef( -scene_center.x, -scene_center.y, -scene_center.z );
-    //newModel = 1;
-    // move model to mouse coordinates
     /* if the display list has not been made yet, create a new one and
        fill it with scene contents */
     // Place this in the mode switching function
     if(scene_list == 0) {
         scene_list = glGenLists(1);
-        // printf("scene_list = %d\n",scene_list);
         glNewList(scene_list, GL_COMPILE);
         /* now begin at the root node of the imported data and traverse
            the scenegraph by multiplying subsequent local transforms
@@ -634,11 +615,9 @@ void display(void)
 
     glCallList(scene_list);
     glPopMatrix();
-    //glLoadIdentity();
-    // Draw axes - no lighting from here on
     ball(Position[0],Position[1],Position[2],10);
     glPushMatrix();
-    glRotatef(-90.0,0.0,1.0,0.0);
+    glRotatef(angle,0.0,1.0,0.0);
     Sky(len*3.5);
     glPopMatrix();
     glLightfv(GL_LIGHT0,GL_AMBIENT ,Ambient);
@@ -647,21 +626,20 @@ void display(void)
     glLightfv(GL_LIGHT0,GL_POSITION,Position);
     glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,32.0f);
     glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
-    glDisable(GL_LIGHTING);
-    glColor3f(1, 1, 1);
-    glBegin(GL_LINES);
-    glVertex3d(0.0, 0.0, 0.0);
-    glVertex3d(len, 0.0, 0.0);
-    glVertex3d(0.0, 0.0, 0.0);
-    glVertex3d(0.0, len, 0.0);
-    glVertex3d(0.0, 0.0, 0.0);
-    glVertex3d(0.0, 0.0, len);
-    glEnd();
-    // Label axes
-
-
-    //glCallList(scene_list);
-
+    
+    // Draw axes - no lighting from here on
+    if(axes){
+        glDisable(GL_LIGHTING);
+        glColor3f(1, 1, 1);
+        glBegin(GL_LINES);
+        glVertex3d(0.0, 0.0, 0.0);
+        glVertex3d(len, 0.0, 0.0);
+        glVertex3d(0.0, 0.0, 0.0);
+        glVertex3d(0.0, len, 0.0);
+        glVertex3d(0.0, 0.0, 0.0);
+        glVertex3d(0.0, 0.0, len);
+        glEnd();
+    }
     glutSwapBuffers();
 
     do_motion();
@@ -697,8 +675,6 @@ void key(unsigned char ch, int x, int y){
         mouseWorldCoord[2] = 1.f;
     }
 
-    //only allow mode to be changed every 5 seconds
-    //temporary workaround until can use multiple "scenes"
     else if (ch == 'm') {
         meshCurrent = 1 - meshCurrent;
     }
@@ -714,15 +690,14 @@ int main(int argc, char **argv)
     glutInitWindowPosition(100,100);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInit(&argc, argv);
-    //aiLoadScene(Model1);
-    //make function from 
     glutCreateWindow("Michael Eller - Final Project (Preview)");
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
-    //glutSetCursor(GLUT_CURSOR_NONE);
+    glutSetCursor(GLUT_CURSOR_NONE);
     glutKeyboardFunc(key);
-    sky[0] = LoadTexBMP("../sky2.bmp");
-
+    sky[0] = LoadTexBMP("../sky0.bmp");
+    sky[1] = LoadTexBMP("../sky1.bmp");
+    printf("FLT_MAX = %f\n",FLT_MAX);
     /* get a handle to the predefined STDOUT log stream and attach
        it to the logging system. It remains active for all further
        calls to aiImportFile(Ex) and aiApplyPostProcessing. */
@@ -733,12 +708,7 @@ int main(int argc, char **argv)
        log messages to assimp_log.txt */
     stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
     aiAttachLogStream(&stream);
-
-    /* the model name can be specified on the command line. If none
-       is specified, we try to locate one of the more expressive test 
-       models from the repository (/models-nonbsd may be missing in 
-       some distributions so we need a fallback from /models!). */
-
+    
     loadasset(Xwing);
     glClearColor(0.1f,0.1f,0.1f,1.f);
 
@@ -748,7 +718,7 @@ int main(int argc, char **argv)
 
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);    /* Uses default lighting parameters */
-    glEnable(GL_LIGHT1);
+    glEnable(GL_LIGHT1);    /* Light corresponding to star in skybox */
     glEnable(GL_DEPTH_TEST);
 
     glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
