@@ -62,6 +62,7 @@ static float angle = 0.f;
 unsigned int meshCurrent = 0;
 #define aisgl_min(x,y) (x<y?x:y)
 #define aisgl_max(x,y) (y>x?y:x)
+GLdouble infinitySymbol[3] = {0.0, 0.0, 0.0};
 
 GLdouble mouseWorldCoord[3] = {0.0, 0.0, 0.0};
 int inc = 10;       // Ball increment
@@ -136,7 +137,6 @@ void MouseButton(int button, int state, int x, int y)
     if (button == GLUT_LEFT_BUTTON)
     {
         g_bButton1Down = (state == GLUT_DOWN) ? TRUE : FALSE;
-        //printf("Mouse Pressed!\n");
 
     }
 }
@@ -144,8 +144,6 @@ void MouseButton(int button, int state, int x, int y)
 
 void MouseMotion(int x, int y)
 {
-    // Vector3 GetOGLPos(int x, int y)
-    //static int rangeError = 3000;
     GLint viewport[4];
     GLdouble modelview[16];
     GLdouble projection[16];
@@ -550,6 +548,8 @@ void do_motion (void)
     static GLint prev_time = 0;
     static GLint prev_fps_time = 0;
     static int frames = 0;
+    GLdouble a = 5.0;
+    GLdouble speed = 10.0;
 
     int time = glutGet(GLUT_ELAPSED_TIME);
     angle += (time-prev_time)*0.01;
@@ -563,7 +563,8 @@ void do_motion (void)
         frames = 0;
         prev_fps_time = time;
     }
-
+    infinitySymbol[0] = (a * cos(angle/speed))/(1 + pow(sin(angle/speed),2));
+    infinitySymbol[1] = (a * sin(angle/speed) * cos(angle/speed))/(1 + pow(sin(angle/speed),2));
 
     glutPostRedisplay ();
 }
@@ -580,7 +581,6 @@ void display(void)
     float tmp;
     glPushMatrix();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    printf("Angle = %f\n",angle);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(0.f,0.f,3.f,0.f,0.f,-5.f,0.f,1.f,0.f);
@@ -610,8 +610,11 @@ void display(void)
         recursive_render(scene, scene->mRootNode);
         glEndList();
     }
+    // move ship to mouse cursor
     glTranslatef(mouseWorldCoord[0],mouseWorldCoord[1],0);
-    // ball(0,0,0,100);
+    // add some slight sway to make ship seem more 'alive'
+    //printf("infitySymbol[0], infinitySymbol[1] = %f,%f\n",infinitySymbol[0],infinitySymbol[1]);
+    glTranslatef(infinitySymbol[0],infinitySymbol[1],0);
 
     glCallList(scene_list);
     glPopMatrix();
