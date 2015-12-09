@@ -613,7 +613,6 @@ void display(void)
     // move ship to mouse cursor
     glTranslatef(mouseWorldCoord[0],mouseWorldCoord[1],0);
     // add some slight sway to make ship seem more 'alive'
-    //printf("infitySymbol[0], infinitySymbol[1] = %f,%f\n",infinitySymbol[0],infinitySymbol[1]);
     glTranslatef(infinitySymbol[0],infinitySymbol[1],0);
 
     glCallList(scene_list);
@@ -629,7 +628,7 @@ void display(void)
     glLightfv(GL_LIGHT0,GL_POSITION,Position);
     glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,32.0f);
     glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
-    
+
     // Draw axes - no lighting from here on
     if(axes){
         glDisable(GL_LIGHTING);
@@ -711,7 +710,7 @@ int main(int argc, char **argv)
        log messages to assimp_log.txt */
     stream = aiGetPredefinedLogStream(aiDefaultLogStream_FILE,"assimp_log.txt");
     aiAttachLogStream(&stream);
-    
+
     loadasset(Xwing);
     glClearColor(0.1f,0.1f,0.1f,1.f);
 
