@@ -36,4 +36,24 @@ RUN:
     $./assimp_simpleog
 Click and drag mouse to move Xwing Fighter around window (cursor is hidden)
 
+Additional Notes:
+    This was my first time actually working with a library of this
+    magnitude before. This presented many obstacles for me, such as
+    figuring out how to use CMake to even compile and link the necessary
+    files, thoroughly understanding what the provided example code was
+    doing, and espicially reading through countless pages of documentation.
+    Some things that I am proud of in this project are actually being able 
+    to properly load my 3d image, being able to properly move the spacecraft
+    around using the mouse (which was much harder than I imagined it to be),
+    and the little touches I added near the end of the project to add just
+    a little bit of pizzazz. The space ship has a slight idling motion
+    to make it appear more alive. In addition, a second light source is
+    placed near the large star present in the skybox to make it appear
+    more realistic. I was so close to getting the ability to load
+    multiple spacecraft, but the "scene" structure used by assimp was
+    very difficult to comprehend (much less manipulate). Given more time,
+    there are dozens of features I would have loved to add to my project,
+    but nonetheless, I am proud of what I have accomplished. 
 
+    Thank You,
+    Michael Eller
